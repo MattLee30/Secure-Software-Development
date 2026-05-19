@@ -1,8 +1,18 @@
-{% if error %}
-<p style="color: red">{{ error }}</p>
-{% endif %}
-<form method="post" action="/login">
-  <p>Email: <input type="text" name="email" /></p>
-  <p>Password: <input type="password" name="password" /></p>
-  <p><input type="submit" value="Login" /></p>
-</form>
+{% extends "base.html" %}
+{% block title %}Login — Secure Bank{% endblock %}
+{% block content %}
+  <h1>Sign In</h1>
+
+  {% if error %}
+    <div class="flash-error">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/login">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <label for="email">Email</label>
+    <input type="text" id="email" name="email" />
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" />
+    <input type="submit" value="Login" />
+  </form>
+{% endblock %}

@@ -1,5 +1,8 @@
-<p>Hi, {{ user }}</p>
-
-<h1>Details for Account {{account_number}}</h1>
-<p>Your balance is {{ balance }}</p>
-<p><a href="/dashboard">Back to Dashboard</a></p>
+{% extends "base.html" %}
+{% block title %}Account Details — Secure Bank{% endblock %}
+{% block content %}
+  <h1>Account {{ account_number }}</h1>
+  <p>Logged in as {{ user }}</p>
+  <p class="balance">${{ balance }}</p>
+  <a class="back-link" href="/dashboard">&larr; Back to Dashboard</a>
+{% endblock %}

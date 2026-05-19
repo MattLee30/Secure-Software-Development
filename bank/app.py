@@ -1,7 +1,13 @@
-from flask import Flask, request, make_response, redirect, render_template, g
+from flask import Flask, request, make_response, redirect, render_template, g, abort, flash
+from flask_wtf.csrf import CSRFProtect
 from user_service import get_user_with_credentials, logged_in
+from account_service import get_balance, do_transfer, get_accounts
 
 app = Flask(__name__)
+# SECRET_KEY is required by Flask-WTF to sign CSRF tokens
+app.config['SECRET_KEY'] = 'bfg28y7efg238re7r6t32gfo23vfy7237yibdyo238do2v3'
+# CSRFProtect rejects any POST that lacks a valid signed token, blocking cross-site form submissions
+csrf = CSRFProtect(app)
 
 @app.route("/", methods=['GET'])
 def home():
@@ -15,8 +21,10 @@ def login():
     password = request.form.get("password")
     user = get_user_with_credentials(email, password)
     if not user:
+        # Same message for bad email or bad password — prevents user enumeration
         return render_template("login.html", error="Invalid credentials")
     response = make_response(redirect("/dashboard"))
+    # JWT stored in a cookie; the token is verified server-side on every protected route
     response.set_cookie("auth_token", user["token"])
     return response, 303
 
@@ -35,7 +43,14 @@ def details():
         "details.html",
         user=g.user,
         account_number=account_number,
-        balance = get_balance(account_number, g.user))
+        balance=get_balance(account_number, g.user))
+
+@app.route("/transfer", methods=["GET"])
+def transfer_form():
+    if not logged_in():
+        return render_template("login.html")
+    # Pass only the current user's accounts so the dropdown can't be used to probe others
+    return render_template("transfer.html", accounts=get_accounts(g.user))
 
 @app.route("/transfer", methods=["POST"])
 def transfer():
@@ -43,13 +58,18 @@ def transfer():
         return render_template("login.html")
     source = request.form.get("from")
     target = request.form.get("to")
-    amount = int(request.form.get("amount"))
+    # Fail fast on bad input type before touching the database
+    try:
+        amount = int(request.form.get("amount"))
+    except (ValueError, TypeError):
+        abort(400, "Amount must be an integer")
 
     if amount < 0:
         abort(400, "NO STEALING")
     if amount > 1000:
         abort(400, "WOAH THERE TAKE IT EASY")
 
+    # get_balance checks owner=g.user — enforces that the source account belongs to the logged-in user
     available_balance = get_balance(source, g.user)
     if available_balance is None:
         abort(404, "Account not found")
@@ -57,7 +77,7 @@ def transfer():
         abort(400, "You don't have that much")
 
     if do_transfer(source, target, amount):
-        pass # TODO GIVE FEEDBACK
+        flash("Transfer successful!")
     else:
         abort(400, "Something bad happened")
 
